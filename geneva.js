@@ -1,9 +1,7 @@
 /**  
- *  GenevaJS, version x
- *  (c) 2009 Rick waldron
+ *  GenevaJS (c) 2009 Rick waldron
  *
  *  MIT license.
- *
  *
  *  THIS VERSION OF GENEVA IS FOR DEVELOPMENT ONLY
  *  DO NOT USE IN PRODUCTION ENVIRONMENTS -- INCOMPLETE!!
@@ -182,11 +180,8 @@ String.prototype.lcase = function() {
       
     if ( arguments.length === 0 )
       return new Geneva(document.body);
-    
+
     selector = arguments[0];
-    
-    //if ( typeof selector === undefined )  
-    //  return new Geneva(document.body);
     
     if ( typeof selector === 'object' ) {
       if ( Object.isElement( selector ) && Object.isString( selector ) )
@@ -228,11 +223,11 @@ String.prototype.lcase = function() {
   
   Element.addMethods();
   
-//  Prototype $ as _$ within Geneva
+//  $ as _$ within Geneva
 })( $ ); 
 
 
-//  Geneva compat serialize()
+//  serialize() adapter
 Form.Element.Methods.serialize = function() {
   el = _$( arguments[0] );
   if ( !el.disabled && el.name )
@@ -251,25 +246,6 @@ $g.addMethods({
 
 //  Ajax
 $g.addMethods({
-
-  /*
-  
-  EXAMPLE JQUERY
-  $.ajax({
-      url: 'document.xml',
-      type: 'GET',
-      dataType: 'xml',
-      timeout: 1000,
-      error: function(){
-          alert('Error loading XML document');
-      },
-      success: function(xml){
-          // do something with xml
-      }
-  });
-
-
-  */
 
   ajax   : function ( url, method, args, fn, type ) {
     
@@ -490,6 +466,5 @@ Element.addMethods({
 
 // TODO:
 // Manipulation
-// Ajax
 
 Element.addMethods();
