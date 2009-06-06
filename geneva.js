@@ -13,7 +13,7 @@ String.prototype._gclean  = function() { return this.replace(/\t/g, '').replace(
 String.prototype._glcase  = function() { return this.toLowerCase(); };
 // END
 
-//  $ as _$ adapter
+//  $ as _$
 (function (_$) {
   
   
@@ -114,7 +114,7 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
       Geneva.prototype[ method ] = source[ method ];
   };
   
-  
+  //  Copy Prototype objects into Geneva scope  
   Geneva.fn._copySourceMethods  = function () {
     
     _copyset.each( function ( source ) {
@@ -164,8 +164,6 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
   };
 
   Geneva.fn._copySourceMethods();
-  
-  
   
   //  Events
   $w(
