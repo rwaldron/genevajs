@@ -18,7 +18,7 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
   
   
   function $S(_s) {
-    _siz  = Sizzle(_s);
+    var _siz  = Sizzle(_s);
     
     if ( _siz.length > 0 )
       return _siz;
@@ -26,101 +26,87 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
     return $$(_s);
   };
   
+  //  Prototype objects to copy into GenevaJS
+  var _copyset   = [ Element.Methods, Form.Methods, Form.Element.Methods ];
   
-  //  Class/objects to copy
-  var _classobjects   = [ Element.Methods, Form.Methods, Form.Element.Methods ]; //?    
-  
-  //  GenevaJS object [Enumerable]
+  //  GenevaJS Object 
+  //  [mixes: Enumerable (allows array-like object support)]
   var Geneva = Class.create( Enumerable, {
     initialize: function ( _s ) {
-      //  Set up
-      //  If sizzle.js loaded, add to the selector arsenal
+      //  Sizzle || $$() || _$()
       this._elems = Object.isString(_s) 
                       ? ( 'Sizzle' in window ? $S(_s) : $$(_s) )
                       : [_$(_s)];
       
-      // Try _$
+      //  Covers single elements
       if ( this._elems.length < 1 )
         this._elems = [_$(_s)];
       
       this._toArray();
-    }
-  });
-  
-  // GenevaJS private parts
-  Geneva.addMethods( {
+    },
+    //  Internal  _toArray makes object this._elems array compat
     _toArray: function() {
       Array.prototype.push.apply(this, this._elems);
     },
-    // usage: this._first() to substitute element
+    //  Internal this._first() clean alias to this._elems[0]
     _first: function() {
       return this._elems[0];
     },
+    //  Internal _each()
     _each: function(iterFn) {
       this._elems._each(iterFn);
-
-      //for (var i = 0, length = this.length; i < length; i++)
-      //  iterFn(this[i]);
-    },
-    _style : function (args) {
-      if ( typeof args === 'object' ) 
-        this.setStyle(args);
-      
-      this.addClassName(args);
     }
   });
 
   Geneva.fn = {};
   Geneva.fn._adapter = function() {
-
-    if ( arguments.length === 0 )
+    //  $() is empty SEE: Ajax Methods
+    if ( arguments.length === 0 ) {
       return new Geneva(document.body);
+    }      
 
+    //  _s = selector = element = function = document
     var _s = arguments[0];
 
-    
-    if ( typeof _s === 'function' ) {
-      //  check dom loaded, if it has, fire function now, if not, listen for dom:loaded, then fire
-      console.log(  _s.call(this, arguments)  );
-      return document;
+    //  $(function(){}) = dom:loaded = $.ready()
+    if ( typeof _s == 'function' ) {
+      return document.observe('dom:loaded', function () {
+        _s.call(this, arguments);
+      }.bind(this));
     }
 
-    if ( typeof _s === 'object' ) {
+    if ( typeof _s == 'object' ) {
       if ( Object.isElement(_s) && Object.isString(_s) )
         return new Geneva(_s);
 
       return _s;
     }
-
-    // jQuery selector support. 
-    var _strExp = /^[^<]*(<(.|\s)+>)[^>]*$|^#([\w-]+)$/, // jQuery (c) John Resig
-        _selExp = /^.[^:#\[\.,]*$/,                      // jQuery (c) John Resig
-        _selArr = _strExp.exec(_s);
-
-
-    // Create new element
-    if ( _selArr && _selArr[1] && !_selArr[3] ) {
-      
-      var _newArr = /^<(\w+)\s*\/?>$/.exec(_selArr[1]);
+    //  Expressions jQuery (c) John Resig
+    var _strExp = /^[^<]*(<(.|\s)+>)[^>]*$|^#([\w-]+)$/,
+        _selExp = /^.[^:#\[\.,]*$/,                     
+        _strArr = _strExp.exec(_s),
+        _selArr = _selExp.exec(_s);
+        
+    //  New Element
+    if ( _strArr && _strArr[1] && !_strArr[3] ) {
+      var _newArr = /^<(\w+)\s*\/?>$/.exec(_strArr[1]);
       
       if ( _newArr )
         return new Geneva( document.createElement( _newArr[1] ) );
     }
-    
-    if ( _selArr && _selArr[3] ) {
-
-      return new Geneva(_selArr[3]);
-
-    } else {
-      var _selArr   = _selExp.exec(_s);
-
-      if ( _selArr &&  _$(_selArr[0]) ) 
-        return new Geneva(_selArr[0]);
-
-      return new Geneva(_s);
+    //  #Element
+    if ( _strArr && _strArr[3] ) {
+      return new Geneva(_strArr[3]);
+    } 
+    //  .ClassName  
+    if ( _selArr &&  _$(_selArr[0]) ) {
+      return new Geneva(_selArr[0]);
     }
-
-    return new _$(_s);
+    //  CSS Selector
+    return new Geneva(_s);
+    
+    //  Prototype $()
+    //*return new _$(_s);
   };
   
   Geneva.fn._extend = function( source ) {
@@ -131,35 +117,38 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
   
   Geneva.fn._copySourceMethods  = function () {
     
-    _classobjects.each( function ( source ) {
+    _copyset.each( function ( source ) {
       
       for ( var method in source ) {
-        //  console.log(method);
-        //  console.log( source[method] );
-
-
         //  Define Geneva compat copies of all methods. 
-        //  with first _element argument support
         Geneva.prototype[ method ] = ( function ( method ) {
           
-          //console.log( source[ method ].argumentNames() )  ;
           return function() { 
 
-            //var args = $A( arguments ), _first = false, _result, _elems = [];
-            var _args = $A( arguments ), _first = false, _result, _elems = [];
+            var _elems = [], _args = $A( arguments ), _first = false, _result;
 
-            this._elems.each( function( element, i )  {
-
-              // ex. observe(  [element, event, callback] )
-              _result = source[ method ].apply( null, _args.length ? [ element ].concat(_args) : [ element ] );
-
-              if ( !Object.isElement( _result ) || Object.isUndefined( _result ) ) {
-                //  console.log(_result);
-                //  console.log('_first set true');
+            this._elems.each( function( elem, i )  {
+              
+              //  _result: the single element is given the method
+              //  console.log(method);
+              //  console.log(_args.length ? [ elem ].concat(_args) : [ elem ]);
+              _result = source[ method ].apply( null, _args.length ? [ elem ].concat(_args) : [ elem ] );
+              
+              //  Break if method has 
+              if ( typeof _result == 'undefined' || _result.nodeType != 1 ) {
+                 //console.log('---S:_copySourceMethods---');
+                 //console.log(_result);
+                 //console.log('_first set true');
+                 //console.log('---E:_copySourceMethods---');
+                  
                 _first = true; throw $break;
+                
+                //console.log($break);
               }
 
-              _result && ( _elems[i] = element );
+              //  console.log(_result);
+              //  console.log(_elems[i] = elem);
+              _result && ( _elems[i] = elem );
             });
 
             if ( _first ) return _result;
@@ -168,30 +157,23 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
             return this;
           }
 
-        //  pass the object method as argument to the closure  
+        //  method explicitly  
         })( method );
-        //  End Geneva.prototype definition
       };
     });
   };
 
   Geneva.fn._copySourceMethods();
   
+  
+  
   //  Events
   $w(
-  'composition compositionstart compositionend contextmenu ' + 
-  //  Drag
   'dragenter dragover dragexit dragdrop draggesture ' +
-  //  Form
   'focus blur submit reset change select input ' +
-  //  Keys
   'keydown keyup keypress ' +
-  //  Doc
-  'load beforeunload unload abort error ' +
-  //  Mouse
-  'mousedown mouseup click dblclick mouseover mouseout mousemove ' +
-  //  Etc.
-  'paint resize scroll overflow underflow overflowchanged text '
+  'load beforeunload unload abort error paint resize scroll ' + 
+  'mousedown mouseup click dblclick mouseover mouseout mousemove contextmenu'
   )
   .each( function( type ) {
   
@@ -199,29 +181,22 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
       
       return function( fn ) {
         
-        //  Cursor controller [OMIT?]
-        /*
-        if ( type === ('click' || 'dblclick') )
-          this._style({ cursor: 'default' });
-        if ( type === 'submit' )
-          this._first().setAttribute('onsubmit', 'return false');
-        */
-        //  No callback, use native
-        if ( typeof fn === undefined ) {
-          try {
-            //this._each();
-            this._first()[ type ]();
-          } catch (e) {} 
-          return this._first();
+        //  Callback undefined, use native
+        if ( ( typeof fn == 'undefined' || arguments.length === 0 ) && this._elems.length > 0 ) {
+          for( var i = 0, _elen = this._elems.length; i < _elen; i++ ) {
+            this._elems[i][type](); 
+          }
+          return this;
         }
-        
-        var fn  = fn;
-        
-        //console.log(this);
-        //return this.observe( type, fn);
+        //  fn != undefined
+        var fn  = fn ? fn : function () {};
+
+        //  Prototype's observe will ensure proper handling of events added to elements
+        //  No need to pollute Geneva with event handling functions
         return this.observe( type, function (_e) {
           fn.call( this, _e );
-        }.bind());        
+        }.bind());
+        //  For some bizarre reason, excluding .bind() causes errors in FF & IE 
       }
     })( type );
   });
@@ -234,29 +209,22 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
     };
     return method;
   })( Element.addMethods );  
-  
-  
-  //  $g Convenience
+
+  //  $() Adapter
+  window.$  = Geneva.fn._adapter; 
+  //  $g Geneva alias
   window.$g = Geneva;
-  
   //  $g Extender
   window.$g.addMethods = Geneva.fn._extend;
-  
   //  $F() Adapter
   window.$F = function () {
     return _$( arguments[0] ).getValue();
   };
-  
-  //  $ as _$ Copy
+  //  _$ Prototype $
   window._$ = function () {
     return new _$( arguments[0] );
   };
-
-  //  $() Adapter
-  window.$  = Geneva.fn._adapter; 
-  
-  //document.$  = $;
-  
+  //  Element methods with Geneva compat  
   Element.addMethods();
 //  $ as _$
 })( $ ); 
@@ -264,15 +232,14 @@ String.prototype._glcase  = function() { return this.toLowerCase(); };
 //  update() Adapter
 Element.addMethods({
   _update: function (elem, arg) {
-    return $(elem).update( typeof arg === 'function' ? arg() : arg );
+    if ( elem.value ) {
+      return $(elem).value = (function (arg) {
+                                return (typeof arg == 'function' ? arg() : arg);
+                              })(arg);
+    }                      
+    return $(elem).update( typeof arg == 'function' ? arg() : arg );
   }
 });
-
-
-console.log($g);
-console.log($);
-
-
 
 //  serialize() Adapter
 Form.Element.Methods.serialize = function() {
@@ -401,7 +368,7 @@ Element.addMethods({
     if ( arg !== undefined )
       return elem._update(arg);
     
-    return ( elem.value )._gtrim();
+    return (elem.value)._gtrim();
   },
   html:   function (elem, arg) {
     elem  = $(elem);
@@ -421,28 +388,26 @@ Element.addMethods({
 
 //  Attributes : attr, removeAttr, [ add, has, remove, toggle ]Class, 
 Element.addMethods({
-  
 
-  
   attr:         function  (elem, prop, arg) {
     elem  = $(elem);
-    
-    if ( typeof prop === 'string' && arg === undefined )
-      return elem.readAttribute( prop );
+    if ( typeof prop == 'string' && typeof arg == 'undefined' ) {
+      return elem.readAttribute(prop);
+    }      
   
-    if ( typeof prop === 'object'  ) {
+    if ( typeof prop == 'object'  ) {
       for ( var key in prop  )
         elem.writeAttribute( key, prop[ key ] );
      
       return elem;
     }
-    return elem.writeAttribute( prop, ( typeof arg === 'function' ? arg() : arg ) );
+    return elem.writeAttribute( prop, ( typeof arg == 'function' ? arg() : arg ) );
   }, 
-  removeAttr:   function  (elem, prop ) {
+  removeAttr:   function  (elem, prop) {
     elem  = $(elem);
     
-    return ( prop !== undefined 
-              ? elem.removeAttribute( prop )
+    return ( prop != 'undefined' 
+              ? elem.removeAttribute(prop)
               : elem );
   },
   addClass:     function  (elem, arg) {
@@ -457,9 +422,9 @@ Element.addMethods({
   toggleClass:  function  (elem, arg) {
     elem  = $(elem);
     
-    if (elem.hasClassName(arg) ) 
+    if (elem.hasClassName(arg) ) {
       return elem.removeClassName(arg);
-    
+    }      
     return elem.addClassName(arg);
   }
 });
@@ -467,14 +432,27 @@ Element.addMethods({
 // CSS
 Element.addMethods({
   
-  css: function (elem, arg) {
-    elem = $(elem)
+  css:      function (elem, arg) {
+    elem =  $(elem)
     
-    if ( typeof arg === 'object' )
+    if ( typeof arg == 'object' )
       return elem.setStyle(arg);
 
     return elem.getStyle(arg);            
   }
+  
+  //  TODO:
+  //  -------------
+  //  offset
+  //  position
+  //  scrollTop/scrollTop(val)
+  //  scrollLeft/scrollLeft(val)
+  //  height/height(val)
+  //  width/width(val)
+  //  innerHeight
+  //  innerWidth
+  //  outerHeight
+  //  outerWidth
 });
 
 
@@ -483,35 +461,53 @@ Element.addMethods({
 //  Convenience Aliases to Prototype methods
 Element.addMethods({
   
+  //  Filtering
+  eq:       function (i) {
+    //console.log(this);
+  },
+  filter:   function (arg) {
+    // arg can be either expression or function
+  },
+  is:       function (exp) {
+  },
+  map:      function (fn) {
+  },
+  not:      function (exp) {
+  },
+  slice:    function (start, end) {
+  },
+  //  Finding
   children: Element.Methods.immediateDescendants,
-  
-  closest:  function (elem) {
-    return $(elem).parentNode;
-  },
-  contents: function (elem) {
-    return $(elem).select("*");
-  },
-  
-  // find : function () {},
-  // next : function () {},
-  
-  nextAll: function (elem) {
-    return $(elem).recursivelyCollect('nextSibling');
-  },
-  
   offsetParent: Element.Methods.getOffsetParent,
-  
+
+  add:      function (exp) {
+  },
+  closest:  function (elem) {
+    return  $(elem).parentNode;
+  },
+  //contents: Element.Methods.select,
+  contents: function (elem) {
+    return  $(elem).select('*');
+  },
+  nextAll:  function (elem) {
+    return  $(elem).recursivelyCollect('nextSibling');
+  },
   parent:   function (elem) {
-    return $(elem).parentNode;
+    return  $(elem).parentNode;
   },
   parents:  function (elem) {
-    return $(elem).recursivelyCollect('parentNode');
+    return  $(elem).recursivelyCollect('parentNode');
   },
   prev:     function (elem, exp, index ) {
-    return $(elem).previous(exp, index);          
+    return  $(elem).previous(exp, index);          
   },
-  prevAll : function (elem) {
-    return $(elem).recursivelyCollect('previousSibling');
+  prevAll:  function (elem) {
+    return  $(elem).recursivelyCollect('previousSibling');
+  },
+  //  Chaining
+  andSelf:  function () {
+  },
+  end:      function () {
   }
 });
 
@@ -552,5 +548,8 @@ Element.addMethods({
   //  return $(elem).insert(arg);
   //}
 });
+
+
+
 
 Element.addMethods();
